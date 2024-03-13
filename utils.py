@@ -60,7 +60,7 @@ class SaveBestModel:
                 }, 'outputs/best_model.pth')
 
 
-def cut_frame(image, max_cut=.2, default_cut=60):
+def cut_frame(image, max_cut=.2, default_cut=0.05):
     """
     Cuts black frame of the image. (from Martyna)
     """
@@ -76,10 +76,13 @@ def cut_frame(image, max_cut=.2, default_cut=60):
         contours_poly[i] = cv2.approxPolyDP(c, 3, True)
         boundRect[i] = cv2.boundingRect(contours_poly[i])
     [x, y, w, h] = sorted(boundRect, key=lambda coef: coef[3])[-1]
-    
+
     # check output points, if points are incorrect set default values
+    # values usually are incorrect ...
     if max_cut < 1:
-        max_cut = H * 0.2
+        max_cut = int(H * max_cut)
+    if default_cut < 1:
+        default_cut = int(H * default_cut)
     if x > max_cut or y > max_cut: # to adjust
         x = y = default_cut
         w = h = H - default_cut
@@ -89,10 +92,23 @@ def cut_frame(image, max_cut=.2, default_cut=60):
     return x, y, w, h
 
 
+def check_bbox(bboxes, nx, ny, ndx, ndy):
+    for bbox in bboxes:
+        x, y, dx, dy = bbox
+        # check if left and top borders do not overlap with bbox 
+        if nx > x: nx = x
+        if ny > y: ny = y
+        # check if bottom and right borders overlap with bbox
+        if dx - nx > ndx: ndx = dx - nx
+        if dy - ny > ndy: ndy = dy - ny
+    return nx, ny, ndx, ndy
+    
+
 def cut_border(image, bboxes):
     # crop borders
     nx, ny, ndx, ndy = cut_frame(image)
-    image_cropped = image[nx:ndx, ny:ndy]
+    nx, ny, ndx, ndy = check_bbox(bboxes, nx, ny, ndx, ndy)
+    image_cropped = image[nx:(nx+ndx), ny:(ny+ndy)]
     
     # calculate new coordinates of bboxes
     bboxes_cropped = []
@@ -126,14 +142,16 @@ def custom_transforms(image, bboxes, target_size):
     return image_cropped, bboxes_cropped
 
 
+def collate_fn(batch):
+    """
+    To handle the data loading as different images may have different number 
+    of objects and to handle varying size tensors as well.
+    """
+    return tuple(zip(*batch))
+
+
 # TO BE IMPLEMENTED ...
 
-# def collate_fn(batch):
-#     """
-#     To handle the data loading as different images may have different number 
-#     of objects and to handle varying size tensors as well.
-#     """
-#     return tuple(zip(*batch))
 # # define the training tranforms
 # def get_train_transform():
 #     return A.Compose([
