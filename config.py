@@ -4,16 +4,15 @@ import os
 BATCH_SIZE = 2
 RESIZE_TO = 512
 NUM_EPOCHS = 3
-NUM_WORKERS = 4
+NUM_WORKERS = 12
 
 DEVICE = (
     "cuda"
     if torch.cuda.is_available()
-    else "mps"
-    if torch.backends.mps.is_available()
+    # else "mps"
+    # if torch.backends.mps.is_available()
     else "cpu"
 )
-print(f"Using {DEVICE} device")
 
 DATA_DIR = "./data"
 DATASET_DIR = os.path.join(DATA_DIR, "dataset")

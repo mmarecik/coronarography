@@ -1,16 +1,11 @@
-# import albumentations as A
+import matplotlib.pyplot as plt
+import numpy as np
+import torch
 import cv2
-# import numpy as np
-# import torch
-# import matplotlib.pyplot as plt
-# from albumentations.pytorch import ToTensorV2
-# from config import DEVICE, CLASSES
 
-# plt.style.use('ggplot')
+import config
 
 
-# this class keeps track of the training and validation loss values...
-# ... and helps to get the average for each epoch as well
 class Averager:
     def __init__(self):
         self.current_total = 0.0
@@ -142,6 +137,33 @@ def custom_transforms(image, bboxes, target_size):
     return image_cropped, bboxes_cropped
 
 
+def visualize_dataset(dataset, num_images=9, figsize=(10, 10)):
+    cols = 3
+    rows = int(np.ceil(num_images / cols))
+
+    fig = plt.figure(figsize=figsize)
+    for i in range(num_images):
+        try:
+            img_idx = np.random.randint(0, len(dataset))
+            image, target = dataset[img_idx]
+            fig.add_subplot(rows, cols, i+1)
+            for box_num in range(len(target['boxes'])):
+                box = target['boxes'][box_num]
+                label = config.CLASSES[target['labels'][box_num]]
+                cv2.rectangle(
+                    image, (int(box[0]), int(box[1])), (int(box[2]), int(box[3])),
+                    (255, 0, 0), 2
+                )
+                cv2.putText(
+                    image, str(img_idx), (410, 30), 
+                    cv2.FONT_HERSHEY_DUPLEX, 1, (255, 255, 255)
+                )
+            plt.imshow(image)
+        except Exception as e:
+            print(f"Exception with image of index {img_idx}:", e)
+    plt.show()
+    
+
 def collate_fn(batch):
     """
     To handle the data loading as different images may have different number 
@@ -150,78 +172,30 @@ def collate_fn(batch):
     return tuple(zip(*batch))
 
 
-# TO BE IMPLEMENTED ...
+def save_model(epoch, model, optimizer, file_path='outputs/last_model.pth'):
+    """
+    Function to save the trained model till current epoch, or whenver called
+    """
+    torch.save({
+                'epoch': epoch+1,
+                'model_state_dict': model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                }, file_path)
 
-# # define the training tranforms
-# def get_train_transform():
-#     return A.Compose([
-#         A.Flip(0.5),
-#         A.RandomRotate90(0.5),
-#         A.MotionBlur(p=0.2),
-#         A.MedianBlur(blur_limit=3, p=0.1),
-#         A.Blur(blur_limit=3, p=0.1),
-#         ToTensorV2(p=1.0),
-#     ], bbox_params={
-#         'format': 'pascal_voc',
-#         'label_fields': ['labels']
-#     })
-# # define the validation transforms
-# def get_valid_transform():
-#     return A.Compose([
-#         ToTensorV2(p=1.0),
-#     ], bbox_params={
-#         'format': 'pascal_voc', 
-#         'label_fields': ['labels']
-#     })
-# def show_tranformed_image(train_loader):
-#     """
-#     This function shows the transformed images from the `train_loader`.
-#     Helps to check whether the tranformed images along with the corresponding
-#     labels are correct or not.
-#     Only runs if `VISUALIZE_TRANSFORMED_IMAGES = True` in config.py.
-#     """
-#     if len(train_loader) > 0:
-#         for i in range(1):
-#             images, targets = next(iter(train_loader))
-#             images = list(image.to(DEVICE) for image in images)
-#             targets = [{k: v.to(DEVICE) for k, v in t.items()} for t in targets]
-#             boxes = targets[i]['boxes'].cpu().numpy().astype(np.int32)
-#             labels = targets[i]['labels'].cpu().numpy().astype(np.int32)
-#             sample = images[i].permute(1, 2, 0).cpu().numpy()
-#             for box_num, box in enumerate(boxes):
-#                 cv2.rectangle(sample,
-#                             (box[0], box[1]),
-#                             (box[2], box[3]),
-#                             (0, 0, 255), 2)
-#                 cv2.putText(sample, CLASSES[labels[box_num]], 
-#                             (box[0], box[1]-10), cv2.FONT_HERSHEY_SIMPLEX, 
-#                             1.0, (0, 0, 255), 2)
-#             cv2.imshow('Transformed image', sample)
-#             cv2.waitKey(0)
-#             cv2.destroyAllWindows()
-# def save_model(epoch, model, optimizer):
-#     """
-#     Function to save the trained model till current epoch, or whenver called
-#     """
-#     torch.save({
-#                 'epoch': epoch+1,
-#                 'model_state_dict': model.state_dict(),
-#                 'optimizer_state_dict': optimizer.state_dict(),
-#                 }, 'outputs/last_model.pth')
-# def save_loss_plot(OUT_DIR, train_loss, val_loss):
-#     figure_1, train_ax = plt.subplots()
-#     figure_2, valid_ax = plt.subplots()
-#     train_ax.plot(train_loss, color='tab:blue')
-#     train_ax.set_xlabel('iterations')
-#     train_ax.set_ylabel('train loss')
-#     valid_ax.plot(val_loss, color='tab:red')
-#     valid_ax.set_xlabel('iterations')
-#     valid_ax.set_ylabel('validation loss')
-#     figure_1.savefig(f"{OUT_DIR}/train_loss.png")
-#     figure_2.savefig(f"{OUT_DIR}/valid_loss.png")
-#     print('SAVING PLOTS COMPLETE...')
-#     plt.close('all')
 
+def save_loss_plot(OUT_DIR, train_loss, val_loss):
+    figure_1, train_ax = plt.subplots()
+    figure_2, valid_ax = plt.subplots()
+    train_ax.plot(train_loss, color='tab:blue')
+    train_ax.set_xlabel('iterations')
+    train_ax.set_ylabel('train loss')
+    valid_ax.plot(val_loss, color='tab:red')
+    valid_ax.set_xlabel('iterations')
+    valid_ax.set_ylabel('validation loss')
+    figure_1.savefig(f"{config.OUT_DIR}/train_loss.png")
+    figure_2.savefig(f"{config.OUT_DIR}/valid_loss.png")
+    print('SAVING PLOTS COMPLETE...')
+    plt.close('all')
 
 
 
